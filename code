@@ -1,0 +1,135 @@
+import sqlite3
+from hashlib import sha512
+
+
+class User:
+    def __init__(self, username, password):
+        self.username = username
+        self.password = self._hash_password(password)
+
+    def _hash_password(self, password):
+        return sha512(password.encode()).hexdigest()
+
+
+class Contact:
+    def __init__(self, user_id, first_name, last_name, phone_number, email):
+        self.user_id = user_id
+        self.first_name = first_name
+        self.last_name = last_name
+        self.phone_number = phone_number
+        self.email = email
+
+
+class DatabaseManager:
+    def __init__(self, db_name="contacts.db"):
+        self.db_name = db_name
+        self.conn = sqlite3.connect(db_name)
+        self.cursor = self.conn.cursor()
+
+    def create_tables(self):
+        self.cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY,
+                username TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL
+            )
+        """
+        )
+        self.cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS contacts (
+                id INTEGER PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                first_name TEXT,
+                last_name TEXT,
+                phone_number TEXT,
+                email TEXT,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            )
+        """
+        )
+        self.conn.commit()
+
+    def register_user(self, username, password):
+        hashed_password = sha512(password.encode()).hexdigest()
+        self.cursor.execute(
+            "INSERT INTO users (username, password) VALUES (?,?)",
+            (username, hashed_password),
+        )
+        self.conn.commit()
+
+    def authenticate_user(self, username, password):
+        hashed_password = sha512(password.encode()).hexdigest()
+        self.cursor.execute(
+            "SELECT * FROM users WHERE username=? AND password=?",
+            (username, hashed_password),
+        )
+        user = self.cursor.fetchone()
+        if user:
+            return True
+        else:
+            return False
+
+    def close_connection(self):
+        self.conn.close()
+
+
+class DatabaseManager:
+
+    def add_contact(self, user_id, first_name, last_name, phone_number, email):
+        self.cursor.execute(
+            "INSERT INTO contacts (user_id, first_name,last_name, phone_number, email) VALUES (?, ?, ?, ?, ?)",
+            (user_id, first_name, last_name, phone_number, email),
+        )
+        self.conn.commit()
+
+    def get_user_contacts(self, user_id):
+        self.cursor.execute("SELECT * FROM contacts WHERE user_id=?", (user_id,))
+        return self.cursor.fetchall()
+
+    def edit_contact(self, contact_id, first_name, last_name, phone_number, email):
+        self.cursor.execute(
+            "UPDATE contacts SET first_name=?, last_name=?, phone_number=?, email=? WHERE id=?",
+            (first_name, last_name, phone_number, email, contact_id),
+        )
+        self.conn.commit()
+
+    def delete_contact(self, contact_id):
+        self.cursor.execute("DELETE FROM contacts WHERE id=?", (contact_id,))
+        self.conn.commit()
+
+    def search_contacts(self, user_id, keyword):
+        self.cursor.execute(
+            "SELECT * FROM contacts WHERE user_id=? AND (first_name LIKE ? OR last_name LIKE ? OR phone_number LIKE ?)",
+            (user_id, f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"),
+        )
+        return self.cursor.fetchall()
+
+    def get_contact_details(self, contact_id):
+        self.cursor.execute("SELECT * FROM contacts WHERE id=?", (contact_id,))
+        return self.cursor.fetchone()
+
+
+db_manager = DatabaseManager()
+db_manager.create_tables()
+
+# Добавляем тестовых пользователей
+test_users = [
+    ("user1", "password1"),
+    ("user2", "password2"),
+    ("user3", "password3"),
+    ("user4", "password4"),
+    ("user5", "password5"),
+    ("user6", "password6"),
+    ("user7", "password7"),
+    ("user8", "password8"),
+    ("user9", "password9"),
+    ("user10", "password10"),
+]
+
+for username, password in test_users:
+    db_manager.register_user(username, password)
+
+# Проверяем, что пользователи добавлены успешно
+print("Тестовые пользователи добавлены успешно.")
